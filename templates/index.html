@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Trivia Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            padding: 30px;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+        }
+        
+        .search-container {
+            position: relative;
+            margin-bottom: 30px;
+        }
+        
+        #movie-search {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        #movie-search:focus {
+            border-color: #667eea;
+        }
+        
+        .autocomplete-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+        
+        .autocomplete-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            transition: background-color 0.2s;
+        }
+        
+        .autocomplete-item:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+        
+        .movie-poster {
+            width: 40px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 5px;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        
+        .movie-info {
+            flex-grow: 1;
+        }
+        
+        .movie-title {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .movie-year {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-size: 18px;
+            color: #667eea;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .results {
+            display: none;
+        }
+        
+        .movie-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+        
+        .movie-header h2 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .movie-poster-large {
+            width: 150px;
+            height: 225px;
+            object-fit: cover;
+            border-radius: 10px;
+            margin: 15px auto;
+            display: block;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .facts-container {
+            margin-top: 30px;
+        }
+        
+        .fact-item {
+            background: #f8f9fa;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 10px;
+            border-left: 5px solid #667eea;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        
+        .error {
+            background: #ffe6e6;
+            color: #d63384;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .new-search {
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        .new-search button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .new-search button:hover {
+            background: #5a67d8;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                margin: 10px;
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            #movie-search {
+                font-size: 16px;
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Movie Trivia Generator</h1>
+        
+        <div id="search-section">
+            <div class="search-container">
+                <input 
+                    type="text" 
+                    id="movie-search" 
+                    placeholder="Start typing a movie name..."
+                    autocomplete="off"
+                >
+                <div class="autocomplete-results" id="autocomplete-results"></div>
+            </div>
+        </div>
+        
+        <div id="loading-section" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Generating fascinating movie facts...</p>
+        </div>
+        
+        <div id="results-section" class="results">
+            <div class="movie-header">
+                <h2 id="movie-title"></h2>
+                <img id="movie-poster" class="movie-poster-large" alt="Movie Poster">
+            </div>
+            <div class="facts-container" id="facts-container"></div>
+            <div class="new-search">
+                <button onclick="startNewSearch()">Search Another Movie</button>
+            </div>
+        </div>
+        
+        <div id="error-section" class="error" style="display: none;">
+            <p id="error-message"></p>
+            <div class="new-search">
+                <button onclick="startNewSearch()">Try Again</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let searchTimeout;
+        let selectedMovieId = null;
+        
+        const searchInput = document.getElementById('movie-search');
+        const autocompleteResults = document.getElementById('autocomplete-results');
+        const loadingSection = document.getElementById('loading-section');
+        const resultsSection = document.getElementById('results-section');
+        const errorSection = document.getElementById('error-section');
+        const searchSection = document.getElementById('search-section');
+        
+        // Search as user types
+        searchInput.addEventListener('input', function() {
+            const query = this.value.trim();
+            
+            clearTimeout(searchTimeout);
+            
+            if (query.length < 3) {
+                hideAutocomplete();
+                return;
+            }
+            
+            // Debounce search requests
+            searchTimeout = setTimeout(() => {
+                searchMovies(query);
+            }, 300);
+        });
+        
+        // Hide autocomplete when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.search-container')) {
+                hideAutocomplete();
+            }
+        });
+        
+        // Handle Enter key
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const firstResult = autocompleteResults.querySelector('.autocomplete-item');
+                if (firstResult) {
+                    selectMovie(firstResult);
+                }
+            }
+        });
+        
+        function searchMovies(query) {
+            fetch(`/search_movies?query=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(movies => {
+                    showAutocomplete(movies);
+                })
+                .catch(error => {
+                    console.error('Search error:', error);
+                    hideAutocomplete();
+                });
+        }
+        
+        function showAutocomplete(movies) {
+            if (movies.length === 0) {
+                hideAutocomplete();
+                return;
+            }
+            
+            const html = movies.map(movie => `
+                <div class="autocomplete-item" onclick="selectMovieById(${movie.id}, '${movie.title.replace(/'/g, "\\'")}', '${movie.year}', '${movie.poster || ''}')">
+                    ${movie.poster ? `<img src="${movie.poster}" alt="${movie.title}" class="movie-poster">` : ''}
+                    <div class="movie-info">
+                        <div class="movie-title">${movie.title}</div>
+                        <div class="movie-year">${movie.year}</div>
+                    </div>
+                </div>
+            `).join('');
+            
+            autocompleteResults.innerHTML = html;
+            autocompleteResults.style.display = 'block';
+        }
+        
+        function hideAutocomplete() {
+            autocompleteResults.style.display = 'none';
+        }
+        
+        function selectMovieById(movieId, title, year, poster) {
+            selectedMovieId = movieId;
+            searchInput.value = `${title} (${year})`;
+            hideAutocomplete();
+            
+            // Show loading and get facts
+            showLoading();
+            getMovieFacts(movieId);
+        }
+        
+        function showLoading() {
+            searchSection.style.display = 'none';
+            loadingSection.style.display = 'block';
+            resultsSection.style.display = 'none';
+            errorSection.style.display = 'none';
+        }
+        
+        function getMovieFacts(movieId) {
+            fetch(`/get_movie_facts?movie_id=${movieId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showError(data.error);
+                    } else {
+                        showResults(data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Facts error:', error);
+                    showError("Sorry but I'm struggling to find enough interesting info for this movie. Please try again");
+                });
+        }
+        
+        function showResults(data) {
+            loadingSection.style.display = 'none';
+            resultsSection.style.display = 'block';
+            
+            document.getElementById('movie-title').textContent = `${data.title} (${data.year})`;
+            
+            const posterImg = document.getElementById('movie-poster');
+            if (data.poster) {
+                posterImg.src = data.poster;
+                posterImg.style.display = 'block';
+            } else {
+                posterImg.style.display = 'none';
+            }
+            
+            const factsContainer = document.getElementById('facts-container');
+            const factsHtml = data.facts.map((fact, index) => `
+                <div class="fact-item">
+                    <strong>📽️ Fact ${index + 1}:</strong> ${fact}
+                </div>
+            `).join('');
+            
+            factsContainer.innerHTML = factsHtml;
+        }
+        
+        function showError(message) {
+            loadingSection.style.display = 'none';
+            errorSection.style.display = 'block';
+            document.getElementById('error-message').textContent = message;
+        }
+        
+        function startNewSearch() {
+            searchSection.style.display = 'block';
+            loadingSection.style.display = 'none';
+            resultsSection.style.display = 'none';
+            errorSection.style.display = 'none';
+            
+            searchInput.value = '';
+            searchInput.focus();
+            selectedMovieId = null;
+        }
+        
+        // Focus search input on page load
+        window.addEventListener('load', function() {
+            searchInput.focus();
+        });
+    </script>
+</body>
+</html>
