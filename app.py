@@ -190,12 +190,21 @@ Only return the JSON, nothing else."""
         
         if response.status_code == 200:
             result = response.json()
-            content = result['content'][0]['text']
+            content = result['content'][0]['text'].strip()
+            
+            # Clean up Claude's response - remove code fences if they exist
+            import re
+            content = re.sub(r"^```(?:json)?|```$", "", content, flags=re.MULTILINE).strip()
             
             # Parse JSON response
             import json
-            facts_data = json.loads(content)
-            return facts_data['facts']
+            try:
+                facts_data = json.loads(content)
+                return facts_data.get('facts', [])
+            except json.JSONDecodeError as e:
+                print(f"JSON parse error: {e}")
+                print(f"Raw content: {content}")
+                return None
         else:
             print(f"Anthropic API error: {response.status_code}")
             return None
