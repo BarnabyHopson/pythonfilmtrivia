@@ -26,16 +26,19 @@ def search_movies():
         return jsonify([])
     
     try:
-        # Search TMDB for movies
+        # Search TMDB for movies using v4 API token
         url = f"https://api.themoviedb.org/3/search/movie"
+        headers = {
+            'Authorization': f'Bearer {TMDB_API_KEY}',
+            'Content-Type': 'application/json'
+        }
         params = {
-            'api_key': TMDB_API_KEY,
             'query': query,
             'language': 'en-US',
             'page': 1
         }
         
-        response = requests.get(url, params=params)
+        response = requests.get(url, headers=headers, params=params)
         data = response.json()
         
         # Return top 5 results with basic info
@@ -63,24 +66,27 @@ def get_movie_facts():
         return jsonify({'error': 'No movie selected'})
     
     try:
-        # Get detailed movie info from TMDB
+        # Get detailed movie info from TMDB using v4 API token
         movie_url = f"https://api.themoviedb.org/3/movie/{movie_id}"
         credits_url = f"https://api.themoviedb.org/3/movie/{movie_id}/credits"
         
+        headers = {
+            'Authorization': f'Bearer {TMDB_API_KEY}',
+            'Content-Type': 'application/json'
+        }
+        
         movie_params = {
-            'api_key': TMDB_API_KEY,
             'language': 'en-US',
             'append_to_response': 'keywords,videos'
         }
         
         credits_params = {
-            'api_key': TMDB_API_KEY,
             'language': 'en-US'
         }
         
         # Get movie details and credits
-        movie_response = requests.get(movie_url, params=movie_params)
-        credits_response = requests.get(credits_url, params=credits_params)
+        movie_response = requests.get(movie_url, headers=headers, params=movie_params)
+        credits_response = requests.get(credits_url, headers=headers, params=credits_params)
         
         movie_data = movie_response.json()
         credits_data = credits_response.json()
