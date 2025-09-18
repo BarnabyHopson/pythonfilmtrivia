@@ -127,12 +127,15 @@ def generate_movie_facts(movie_info):
     """Use Claude API to generate interesting facts"""
     try:
         # Create prompt for Claude
+        budget_str = f"${movie_info['budget']:,}" if movie_info['budget'] else "Unknown"
+        revenue_str = f"${movie_info['revenue']:,}" if movie_info['revenue'] else "Unknown"
+        
         prompt = f"""Generate 7-9 really interesting, energetic facts about the movie "{movie_info['title']}" ({movie_info['year']}). 
 
 Movie details:
 - Director: {movie_info['director']}
-- Budget: ${movie_info['budget']:,} 
-- Box office: ${movie_info['revenue']:,}
+- Budget: {budget_str}
+- Box office: {revenue_str}
 - Runtime: {movie_info['runtime']} minutes
 - Genres: {', '.join(movie_info['genres'])}
 - Cast: {', '.join(movie_info['cast'][:5])}
@@ -164,7 +167,8 @@ Only return the JSON, nothing else."""
         # Call Anthropic API
         headers = {
             'Content-Type': 'application/json',
-            'x-api-key': ANTHROPIC_API_KEY
+            'x-api-key': ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01'
         }
         
         data = {
