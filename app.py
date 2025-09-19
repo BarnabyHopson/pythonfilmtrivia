@@ -181,7 +181,7 @@ Only return the JSON, nothing else."""
                 }
             ]
         }
-        print(f"Sending prompt: {prompt}")
+        
         response = requests.post(
             'https://api.anthropic.com/v1/messages',
             headers=headers,
