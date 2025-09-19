@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify
 import requests
 import os
 from dotenv import load_dotenv
-import time
+import anthropic
 
 # Load environment variables
 load_dotenv()
@@ -10,143 +10,104 @@ load_dotenv()
 app = Flask(__name__)
 
 # API Keys from environment variables
-TMDB_API_KEY = os.getenv('TMDB_API_KEY')
-ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
+TMDB_API_KEY = os.getenv("TMDB_API_KEY")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
-@app.route('/')
+# Anthropic client
+client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+
+
+@app.route("/")
 def index():
-    return render_template('index.html')
+    return render_template("index.html")
 
-@app.route('/search_movies')
+
+@app.route("/search_movies")
 def search_movies():
-    """Search for movies as user types"""
-    query = request.args.get('query', '').strip()
-    
-    if len(query) < 3:
-        return jsonify([])
-    
-    try:
-        # Search TMDB for movies using v4 API token
-        url = f"https://api.themoviedb.org/3/search/movie"
-        headers = {
-            'Authorization': f'Bearer {TMDB_API_KEY}',
-            'Content-Type': 'application/json'
-        }
-        params = {
-            'query': query,
-            'language': 'en-US',
-            'page': 1
-        }
-        
-        response = requests.get(url, headers=headers, params=params)
-        data = response.json()
-        
-        # Return top 5 results with basic info
-        movies = []
-        for movie in data.get('results', [])[:5]:
-            movies.append({
-                'id': movie['id'],
-                'title': movie['title'],
-                'year': movie.get('release_date', '')[:4] if movie.get('release_date') else 'Unknown',
-                'poster': f"https://image.tmdb.org/t/p/w92{movie['poster_path']}" if movie.get('poster_path') else None
-            })
-        
-        return jsonify(movies)
-    
-    except Exception as e:
-        print(f"Search error: {e}")
+    """Search TMDB for movies by query string"""
+    query = request.args.get("query")
+    if not query:
         return jsonify([])
 
-@app.route('/get_movie_facts')
+    url = "https://api.themoviedb.org/3/search/movie"
+    params = {"api_key": TMDB_API_KEY, "query": query, "language": "en-US"}
+    resp = requests.get(url, params=params)
+
+    if resp.status_code != 200:
+        print("TMDB search error:", resp.text)
+        return jsonify([])
+
+    data = resp.json()
+    results = []
+    for movie in data.get("results", []):
+        results.append(
+            {
+                "id": movie.get("id"),
+                "title": movie.get("title"),
+                "year": movie.get("release_date", "")[:4],
+                "poster": f"https://image.tmdb.org/t/p/w200{movie['poster_path']}"
+                if movie.get("poster_path")
+                else None,
+            }
+        )
+
+    return jsonify(results)
+
+
+@app.route("/get_movie_facts")
 def get_movie_facts():
-    """Get interesting facts about a specific movie"""
-    movie_id = request.args.get('movie_id')
-    
+    """Fetch movie details + generate trivia facts"""
+    movie_id = request.args.get("movie_id")
     if not movie_id:
-        return jsonify({'error': 'No movie selected'})
-    
+        return jsonify({"error": "Missing movie_id"}), 400
+
+    # Step 1: Get movie details from TMDB
+    tmdb_url = f"https://api.themoviedb.org/3/movie/{movie_id}"
+    tmdb_params = {"api_key": TMDB_API_KEY, "language": "en-US"}
+    tmdb_resp = requests.get(tmdb_url, params=tmdb_params)
+
+    if tmdb_resp.status_code != 200:
+        print("TMDB details error:", tmdb_resp.text)
+        return jsonify({"error": "Failed to fetch movie details"}), 500
+
+    movie = tmdb_resp.json()
+    title = movie.get("title")
+    year = movie.get("release_date", "")[:4]
+    poster = (
+        f"https://image.tmdb.org/t/p/w500{movie['poster_path']}"
+        if movie.get("poster_path")
+        else None
+    )
+
+    # Step 2: Generate trivia using Anthropic
     try:
-        # Get detailed movie info from TMDB using v4 API token
-        movie_url = f"https://api.themoviedb.org/3/movie/{movie_id}"
-        credits_url = f"https://api.themoviedb.org/3/movie/{movie_id}/credits"
-        
-        headers = {
-            'Authorization': f'Bearer {TMDB_API_KEY}',
-            'Content-Type': 'application/json'
-        }
-        
-        movie_params = {
-            'language': 'en-US',
-            'append_to_response': 'keywords,videos'
-        }
-        
-        credits_params = {
-            'language': 'en-US'
-        }
-        
-        # Get movie details and credits
-        movie_response = requests.get(movie_url, headers=headers, params=movie_params)
-        credits_response = requests.get(credits_url, headers=headers, params=credits_params)
-        
-        movie_data = movie_response.json()
-        credits_data = credits_response.json()
-        
-        # Prepare data for Claude
-        movie_info = {
-            'title': movie_data.get('title', ''),
-            'year': movie_data.get('release_date', '')[:4] if movie_data.get('release_date') else 'Unknown',
-            'director': next((person['name'] for person in credits_data.get('crew', []) if person['job'] == 'Director'), 'Unknown'),
-            'budget': movie_data.get('budget', 0),
-            'revenue': movie_data.get('revenue', 0),
-            'runtime': movie_data.get('runtime', 0),
-            'genres': [genre['name'] for genre in movie_data.get('genres', [])],
-            'overview': movie_data.get('overview', ''),
-            'vote_average': movie_data.get('vote_average', 0),
-            'production_companies': [company['name'] for company in movie_data.get('production_companies', [])[:3]],
-            'cast': [actor['name'] for actor in credits_data.get('cast', [])[:10]]
-        }
-        
-        # Generate facts using Claude API
-        facts = generate_movie_facts(movie_info)
-        
+        prompt = f"Give me 3 fascinating trivia facts about the movie '{title}' ({year}). " \
+                 "Keep each fact short, fun, and unique. Return them as a simple list."
+
+        response = client.messages.create(
+            model="claude-3-haiku-20240307",
+            max_tokens=300,
+            messages=[{"role": "user", "content": prompt}],
+        )
+
+        # ✅ Fix: properly extract text from Anthropic response
+        raw_text = ""
+        if response.content:
+            raw_text = response.content[0].text.strip()
+        print("Anthropic raw response:", raw_text)
+
+        # Split into facts (one per line or bullet)
+        facts = [f.strip(" -•") for f in raw_text.split("\n") if f.strip()]
+
         if not facts:
-            return jsonify({'error': "Sorry but I'm struggling to find enough interesting info for this movie. Please try again"})
-        
-        return jsonify({
-            'title': movie_info['title'],
-            'year': movie_info['year'],
-            'poster': f"https://image.tmdb.org/t/p/w300{movie_data['poster_path']}" if movie_data.get('poster_path') else None,
-            'facts': facts
-        })
-    
-    except Exception as e:
-        print(f"Movie facts error: {e}")
-        return jsonify({'error': "Sorry but I'm struggling to find enough interesting info for this movie. Please try again"})
+            return jsonify({"error": "No facts could be generated"}), 500
 
-def generate_movie_facts(movie_info):
-    """Use Claude API to generate interesting facts"""
-    try:
-        headers = {
-            'Content-Type': 'application/json',
-            'x-api-key': ANTHROPIC_API_KEY,
-            'anthropic-version': '2023-06-01'
-        }
-        data = {
-            'model': 'claude-3-5-sonnet-20241022',
-            'max_tokens': 200,
-            'messages': [{'role': 'user', 'content': 'Say hello'}]
-        }
-        
-        print(f"Making API call with key: {ANTHROPIC_API_KEY[:10]}...")
-        response = requests.post('https://api.anthropic.com/v1/messages', headers=headers, json=data)
-        print(f"Response status: {response.status_code}")
-        print(f"Response text: {response.text}")
-        
-        return [f"Status: {response.status_code}", f"Text: {response.text[:200]}"]
-        
-    except Exception as e:
-        print(f"Exception: {str(e)}")
-        return [f"Exception: {str(e)}"]
+        return jsonify({"title": title, "year": year, "poster": poster, "facts": facts})
 
-if __name__ == '__main__':
-    app.run(debug=True)
+    except Exception as e:
+        print("Anthropic error:", str(e))
+        return jsonify({"error": "Problem generating trivia"}), 500
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
