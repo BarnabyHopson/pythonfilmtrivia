@@ -125,93 +125,14 @@ def get_movie_facts():
 
 def generate_movie_facts(movie_info):
     """Use Claude API to generate interesting facts"""
-    try:
-        # Create prompt for Claude
-        budget_str = f"${movie_info['budget']:,}" if movie_info['budget'] else "Unknown"
-        revenue_str = f"${movie_info['revenue']:,}" if movie_info['revenue'] else "Unknown"
-        
-        prompt = f"""Generate 7-9 really interesting, energetic facts about the movie "{movie_info['title']}" ({movie_info['year']}). 
-
-Movie details:
-- Director: {movie_info['director']}
-- Budget: {budget_str}
-- Box office: {revenue_str}
-- Runtime: {movie_info['runtime']} minutes
-- Genres: {', '.join(movie_info['genres'])}
-- Cast: {', '.join(movie_info['cast'][:5])}
-- Production: {', '.join(movie_info['production_companies'])}
-- Plot: {movie_info['overview'][:200]}...
-
-Focus on:
-- Behind-the-scenes scandals or drama
-- Production problems or interesting challenges
-- Revolutionary techniques or groundbreaking aspects
-- Surprising casting decisions or actor stories
-- Awards and recognition
-- Box office surprises
-- Cultural impact
-- Fun trivia that movie fans would love
-
-Make each fact 1-2 sentences maximum. Write in a friendly, energizing tone that gets people excited about movies. Return exactly this JSON format:
-
-{
-  "facts": [
-    "Fact 1 here",
-    "Fact 2 here",
-    "Fact 3 here"
-  ]
-}
-
-Only return the JSON, nothing else."""
-
-        # Call Anthropic API
-        headers = {
-            'Content-Type': 'application/json',
-            'x-api-key': ANTHROPIC_API_KEY,
-            'anthropic-version': '2023-06-01'
-        }
-        
-        data = {
-            'model': 'claude-sonnet-4-20250514',
-            'max_tokens': 1000,
-            'messages': [
-                {
-                    'role': 'user',
-                    'content': prompt
-                }
-            ]
-        }
-        
-        response = requests.post(
-            'https://api.anthropic.com/v1/messages',
-            headers=headers,
-            json=data
-        )
-        
-        if response.status_code == 200:
-            result = response.json()
-            content = result['content'][0]['text'].strip()
-            
-            # Clean up Claude's response - remove code fences if they exist
-            import re
-            content = re.sub(r"^```(?:json)?|```$", "", content, flags=re.MULTILINE).strip()
-            
-            # Parse JSON response
-            import json
-            try:
-                facts_data = json.loads(content)
-                return facts_data.get('facts', [])
-            except json.JSONDecodeError as e:
-                print(f"JSON parse error: {e}")
-                print(f"Raw content: {content}")
-                return None
-        else:
-            print(f"Anthropic API error: {response.status_code}")
-            return None
-            
-    except Exception as e:
-        print(f"Fact generation error: {e}")
-        return None
+    # Test with hardcoded facts instead of API call
+    return [
+        "This is test fact number 1 about the movie.",
+        "This is test fact number 2 about the movie.", 
+        "This is test fact number 3 about the movie.",
+        "This is test fact number 4 about the movie.",
+        "This is test fact number 5 about the movie."
+    ]
 
 if __name__ == '__main__':
     app.run(debug=True)
