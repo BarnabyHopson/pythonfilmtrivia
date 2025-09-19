@@ -125,14 +125,28 @@ def get_movie_facts():
 
 def generate_movie_facts(movie_info):
     """Use Claude API to generate interesting facts"""
-    # Test with hardcoded facts instead of API call
-    return [
-        "This is test fact number 1 about the movie.",
-        "This is test fact number 2 about the movie.", 
-        "This is test fact number 3 about the movie.",
-        "This is test fact number 4 about the movie.",
-        "This is test fact number 5 about the movie."
-    ]
+    try:
+        headers = {
+            'Content-Type': 'application/json',
+            'x-api-key': ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01'
+        }
+        data = {
+            'model': 'claude-3-5-sonnet-20241022',
+            'max_tokens': 200,
+            'messages': [{'role': 'user', 'content': 'Say hello'}]
+        }
+        
+        print(f"Making API call with key: {ANTHROPIC_API_KEY[:10]}...")
+        response = requests.post('https://api.anthropic.com/v1/messages', headers=headers, json=data)
+        print(f"Response status: {response.status_code}")
+        print(f"Response text: {response.text}")
+        
+        return [f"Status: {response.status_code}", f"Text: {response.text[:200]}"]
+        
+    except Exception as e:
+        print(f"Exception: {str(e)}")
+        return [f"Exception: {str(e)}"]
 
 if __name__ == '__main__':
     app.run(debug=True)
