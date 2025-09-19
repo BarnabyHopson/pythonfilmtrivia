@@ -132,11 +132,16 @@ def get_movie_facts():
         })
 
     # 3) Build prompt and call Anthropic
-    prompt = (
-        f"Provide 3 concise, verifiable trivia facts about the movie \"{title}\" ({year}).\n"
-        "Return the facts as a simple list, one fact per line. Do not include extra explanation or numbering.\n"
-        "Keep each fact short (1-2 sentences) and avoid speculation."
-    )
+prompt = (
+    f"Give me between 6 and 12 absolutely fascinating, little-known trivia facts "
+    f"about the movie \"{title}\" ({year}).\n\n"
+    "⚡ Requirements:\n"
+    "- Focus on mind-blowing, surprising, or unusual facts.\n"
+    "- Avoid obvious information (like who directed it, who starred, or that it's a sequel).\n"
+    "- Include behind-the-scenes stories, production quirks, groundbreaking elements, cultural impact, or rare references.\n"
+    "- Keep each fact concise (1–3 sentences).\n"
+    "- Return the facts as a clean list, one fact per line, with no extra commentary."
+)
 
     try:
         # Use the Messages API style
@@ -197,8 +202,8 @@ def get_movie_facts():
             logger.warning("No facts parsed from Anthropic response.")
             return jsonify({"error": "No facts could be generated"}), 500
 
-        # Trim to top 6 just in case
-        facts = facts[:6]
+        # Trim to top 12 just in case
+        facts = facts[:12]
 
         return jsonify({"title": title, "year": year, "poster": poster, "facts": facts})
     except Exception as e:
